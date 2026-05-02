@@ -59,19 +59,21 @@ if [ -n "$missing" ]; then
             echo "For compiler: xcode-select --install"
             ;;
         linux|wsl)
-            echo "On Debian/Ubuntu: sudo apt install build-essential mpv curl"
-            echo "On Fedora:        sudo dnf install gcc make mpv curl"
-            echo "On Arch:          sudo pacman -S base-devel mpv curl"
+            echo "On Debian/Ubuntu: sudo apt install build-essential mpv git"
+            echo "On Fedora:        sudo dnf install gcc make mpv git"
+            echo "On Arch:          sudo pacman -S base-devel mpv git"
             ;;
         windows)
             echo "Install MSYS2 from https://www.msys2.org and run:"
-            echo "  pacman -S mingw-w64-x86_64-gcc make curl mingw-w64-x86_64-mpv"
+            echo "  pacman -S mingw-w64-x86_64-gcc make git mingw-w64-x86_64-mpv"
             ;;
     esac
     exit 1
 fi
 
-# --- Check for TLS library (needed for gophers://) ---
+# --- Check for TLS library (required for gophers://) ---
+# Bitreich radio uses gophers:// which needs libtls.
+# sacc must be compiled with IO=tls and -DUSE_TLS.
 tls_ok=0
 if pkg-config --exists libtls 2>/dev/null; then
     tls_ok=1
@@ -81,27 +83,26 @@ elif [ -f /usr/include/tls.h ] || [ -f /usr/local/include/tls.h ] || \
 fi
 
 if [ "$tls_ok" = "0" ]; then
-    echo "WARNING: libtls not found. sacc will be built WITHOUT gophers:// (TLS) support."
-    echo "         Bitreich radio requires TLS. Install libtls/libressl first."
+    echo "ERROR: libtls not found."
+    echo ""
+    echo "Bitreich radio connects over gophers:// (TLS) so libtls is required."
+    echo "Install libressl/libtls for your platform:"
     echo ""
     case "$PLATFORM" in
-        macos)   echo "         brew install libressl" ;;
+        macos)   echo "  brew install libressl" ;;
         linux|wsl)
-            echo "         Debian/Ubuntu: sudo apt install libtls-dev"
-            echo "         Fedora:        sudo dnf install libressl-devel"
-            echo "         Arch:          sudo pacman -S libressl"
-            echo "         Void:          sudo xbps-install libtls-devel"
+            echo "  Debian/Ubuntu: sudo apt install libtls-dev"
+            echo "  Fedora:        sudo dnf install libressl-devel"
+            echo "  Arch:          sudo pacman -S libressl"
+            echo "  Void:          sudo xbps-install libtls-devel"
+            ;;
+        windows)
+            echo "  MSYS2: pacman -S mingw-w64-ucrt-x86_64-libressl"
             ;;
     esac
     echo ""
-    printf "Continue without TLS? [y/N] "
-    read -r ans
-    case "$ans" in
-        [yY]*) IO_TYPE="clr" ;;
-        *) exit 1 ;;
-    esac
-else
-    IO_TYPE="tls"
+    echo "Then run ./install.sh again."
+    exit 1
 fi
 
 # --- Clone latest sacc source ---
@@ -116,12 +117,10 @@ echo "    sacc version: ${SACC_VERSION}"
 echo "==> Patching config.h with bitreich-radio plumber..."
 cp "${SCRIPT_DIR}/config.h" ./config.h
 
-# Adjust config.mk for IO type
-if [ "$IO_TYPE" = "clr" ]; then
-    sed_inplace config.mk 's/^IO = tls/IO = clr/'
-    sed_inplace config.mk 's/^IOLIBS = -ltls/IOLIBS =/'
-    sed_inplace config.mk 's/^IOCFLAGS = -DUSE_TLS/IOCFLAGS =/'
-fi
+# Ensure TLS is enabled in config.mk (IO=tls, -DUSE_TLS, -ltls)
+sed_inplace config.mk 's/^#*IO = .*/IO = tls/'
+sed_inplace config.mk 's/^#*IOLIBS = .*/IOLIBS = -ltls/'
+sed_inplace config.mk 's/^#*IOCFLAGS = .*/IOCFLAGS = -DUSE_TLS/'
 
 # --- Platform-specific build flags ---
 case "$PLATFORM" in
@@ -133,13 +132,13 @@ case "$PLATFORM" in
         elif [ -d /usr/local/opt/libressl ]; then
             LIBRESSL="/usr/local/opt/libressl"
         fi
-        if [ -n "$LIBRESSL" ] && [ "$IO_TYPE" = "tls" ]; then
+        if [ -n "$LIBRESSL" ]; then
             sed_inplace config.mk "s|^OSCFLAGS = .*|OSCFLAGS = -I${LIBRESSL}/include|"
             sed_inplace config.mk "s|^OSLDFLAGS =.*|OSLDFLAGS = -L${LIBRESSL}/lib|"
         fi
         ;;
     linux|wsl)
-        if [ "$IO_TYPE" = "tls" ] && pkg-config --exists libtls 2>/dev/null; then
+        if pkg-config --exists libtls 2>/dev/null; then
             TLS_CFLAGS="$(pkg-config --cflags libtls)"
             TLS_LIBS="$(pkg-config --libs libtls)"
             if [ -n "$TLS_CFLAGS" ]; then
