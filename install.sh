@@ -164,9 +164,9 @@ fi
 echo "    Found: include=${TLS_INCDIR:-system} lib=${TLS_LIBDIR:-system}"
 
 # --- Clone latest sacc source ---
-echo "==> Cloning latest sacc from ${SACC_GIT}..."
+echo "==> Cloning latest sacc..."
 cd "$BUILD_DIR"
-git clone --depth 1 "$SACC_GIT" sacc
+git clone --depth 1 -q "$SACC_GIT" sacc
 cd sacc
 SACC_VERSION="$(git describe --tags 2>/dev/null || git rev-parse --short HEAD)"
 echo "    sacc version: ${SACC_VERSION}"
@@ -197,23 +197,19 @@ fi
 
 # --- Build ---
 echo "==> Building sacc..."
-make clean 2>/dev/null || true
-make
+make clean >/dev/null 2>&1 || true
+if ! make >/dev/null 2>&1; then
+    echo "ERROR: Build failed. Re-running with output:"
+    make
+    exit 1
+fi
 
 # --- Copy binary into the repo directory ---
-echo "==> Installing sacc binary to ${SCRIPT_DIR}..."
 cp sacc "${SCRIPT_DIR}/sacc"
 chmod 755 "${SCRIPT_DIR}/sacc"
 
 # --- Cleanup ---
-echo "==> Cleaning up build files..."
 rm -rf "$BUILD_DIR"
 
 echo ""
 echo "Done! Run './radio' from this directory to tune in."
-echo "Read the sacc manpage for more: man sacc"
-if [ "$PLATFORM" = "wsl" ]; then
-    echo ""
-    echo "NOTE (WSL): Make sure mpv and PulseAudio/PipeWire are configured"
-    echo "for audio output. See README.md for WSL audio setup."
-fi
