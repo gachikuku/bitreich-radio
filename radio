@@ -1,9 +1,15 @@
 #!/bin/sh
 
 # bitreich-radio: Listen to Bitreich Radio via the Gopher protocol.
-# Requires: sacc (gopher client) + mpv (media player)
+# Requires: sacc (built via ./install.sh) + mpv (media player)
 #
 # POSIX-compliant -- works with sh, dash, bash, zsh, ksh, mksh, etc.
+
+# Resolve our own directory so we find sacc and sacc-plumber.sh next to us
+RADIO_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Put our directory first in PATH so sacc finds sacc-plumber.sh
+export PATH="${RADIO_DIR}:${PATH}"
 
 pidfile="${XDG_RUNTIME_DIR:-/tmp}/sacc-mpv.pid"
 
@@ -18,5 +24,5 @@ cleanup() {
 }
 
 trap cleanup EXIT INT TERM HUP
-sacc "gophers://bitreich.org/1/radio/lawn"
+"${RADIO_DIR}/sacc" "gophers://bitreich.org/1/radio/lawn"
 cleanup

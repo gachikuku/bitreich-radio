@@ -1,15 +1,14 @@
 #!/bin/sh
 
 # bitreich-radio installer
-# Downloads sacc source, patches it with our plumber, builds, and installs.
-# Works on macOS, Linux, and Windows (via WSL/MSYS2).
+# Downloads sacc source, patches it with our plumber, builds it,
+# and places the binary right here in this directory. No sudo needed.
 #
 # POSIX-compliant -- works with sh, dash, bash, zsh, ksh, mksh, etc.
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PREFIX="${PREFIX:-/usr/local}"
 SACC_VERSION="1.07"
 SACC_HTTP_URL="https://codemadness.org/releases/sacc/sacc-${SACC_VERSION}.tar.gz"
 BUILD_DIR="$(mktemp -d)"
@@ -140,8 +139,6 @@ case "$PLATFORM" in
         fi
         ;;
     linux|wsl)
-        # Linux defaults in config.mk are usually correct.
-        # If libtls is from a non-standard path, detect via pkg-config.
         if [ "$IO_TYPE" = "tls" ] && pkg-config --exists libtls 2>/dev/null; then
             TLS_CFLAGS="$(pkg-config --cflags libtls)"
             TLS_LIBS="$(pkg-config --libs libtls)"
@@ -154,7 +151,6 @@ case "$PLATFORM" in
         fi
         ;;
     windows)
-        # MSYS2/MinGW
         sed_inplace config.mk 's/^OSCFLAGS = .*/OSCFLAGS = -D_DEFAULT_SOURCE -D_GNU_SOURCE/'
         ;;
 esac
@@ -164,27 +160,18 @@ echo "==> Building sacc..."
 make clean 2>/dev/null || true
 make
 
-# --- Install ---
-echo "==> Installing to ${PREFIX}/bin..."
-
-# Use sudo only if we cannot write to the prefix
-if [ -w "${PREFIX}/bin" ] 2>/dev/null; then
-    SUDO=""
-else
-    SUDO="sudo"
-fi
-
-$SUDO make install PREFIX="$PREFIX"
-$SUDO install -m 755 "${SCRIPT_DIR}/sacc-plumber.sh" "${PREFIX}/bin/sacc-plumber.sh"
-$SUDO install -m 755 "${SCRIPT_DIR}/radio" "${PREFIX}/bin/radio"
+# --- Copy binary into the repo directory ---
+echo "==> Installing sacc binary to ${SCRIPT_DIR}..."
+cp sacc "${SCRIPT_DIR}/sacc"
+chmod 755 "${SCRIPT_DIR}/sacc"
 
 # --- Cleanup ---
-echo "==> Cleaning up..."
+echo "==> Cleaning up build files..."
 rm -rf "$BUILD_DIR"
 
 echo ""
-echo "Done! Run 'radio' to tune in to Bitreich Radio."
-echo "Read the sacc manpage for more: man sacc"
+echo "Done! Run './radio' from this directory to tune in."
+echo "Read the sacc manpage: man sacc (or ./sacc --help)"
 if [ "$PLATFORM" = "wsl" ]; then
     echo ""
     echo "NOTE (WSL): Make sure mpv and PulseAudio/PipeWire are configured"

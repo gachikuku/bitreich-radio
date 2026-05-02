@@ -9,6 +9,8 @@ a custom plumber that pipes audio streams through
 
 Works on **macOS**, **Linux**, and **Windows** (via WSL or MSYS2).
 
+**No sudo required.** Everything lives inside this directory.
+
 ## Requirements
 
 ### Build dependencies (for compiling sacc)
@@ -60,7 +62,7 @@ sudo xbps-install base-devel libtls-devel ncurses-devel mpv curl
 nix-shell -p libressl mpv curl gnumake gcc ncurses
 ```
 
-**Windows (WSL) — recommended:**
+**Windows (WSL) -- recommended:**
 ```powershell
 # 1. Install WSL if you haven't
 wsl --install -d Ubuntu
@@ -69,7 +71,7 @@ wsl --install -d Ubuntu
 sudo apt install build-essential libtls-dev libncurses-dev mpv curl
 ```
 
-**Windows (MSYS2) — alternative:**
+**Windows (MSYS2) -- alternative:**
 ```sh
 # In MSYS2 UCRT64 shell
 pacman -S mingw-w64-ucrt-x86_64-gcc make curl mingw-w64-ucrt-x86_64-mpv \
@@ -82,25 +84,24 @@ pacman -S mingw-w64-ucrt-x86_64-gcc make curl mingw-w64-ucrt-x86_64-mpv \
 git clone https://github.com/gachikuku/bitreich-radio.git
 cd bitreich-radio
 ./install.sh
+./radio
 ```
 
 The installer auto-detects your platform (macOS / Linux / WSL / MSYS2) and will:
-1. Download the sacc 1.07 source
+1. Download the sacc 1.07 source to a temp directory
 2. Patch it with the bundled `config.h` (sets `sacc-plumber.sh` as the plumber)
 3. Compile sacc with TLS support
-4. Install `sacc`, `sacc-plumber.sh`, and `radio` to `/usr/local/bin`
+4. Copy the `sacc` binary into this directory
+5. Clean up the temp build files
 
-To install to a different prefix (no sudo needed):
-```sh
-PREFIX=~/.local ./install.sh
-```
+No files are installed outside this directory. No sudo needed.
 
 ## Windows notes
 
 ### WSL (recommended)
 
 WSL is the easiest way to run this on Windows. After installing dependencies
-inside your WSL distro, just run `./install.sh` and `radio` as normal.
+inside your WSL distro, just run `./install.sh` and `./radio` as normal.
 
 **Audio setup:** WSL2 with Windows 11 has built-in audio passthrough via
 PulseAudio/PipeWire. On older setups you may need to install PulseAudio on
@@ -118,12 +119,13 @@ so they work under MSYS2's bash.
 ## Usage
 
 ```sh
-radio
+cd bitreich-radio
+./radio
 ```
 
 This opens the Bitreich Radio lawn in sacc. Navigate with vi keys (`j`/`k`),
 select a stream with `l`, and mpv will start playing audio in the background.
-Press `q` to quit — any running mpv instance is cleaned up automatically.
+Press `q` to quit -- any running mpv instance is cleaned up automatically.
 
 ### Controls inside sacc
 
@@ -138,17 +140,21 @@ Press `q` to quit — any running mpv instance is cleaned up automatically.
 ## How it works
 
 ```
-radio (shell script)
-  |-- sacc (gopher client, connects to gophers://bitreich.org/1/radio/lawn)
-       |-- sacc-plumber.sh (handles URLs selected in sacc)
+./radio (shell script)
+  |-- ./sacc (gopher client, connects to gophers://bitreich.org/1/radio/lawn)
+       |-- ./sacc-plumber.sh (handles URLs selected in sacc)
             |-- mpv --no-video (plays audio streams)
 ```
 
-- `radio` — entry point; launches sacc pointing at the Bitreich Radio gopher
+The `radio` script prepends its own directory to `PATH` before launching
+`sacc`, so sacc can find `sacc-plumber.sh` right next to it. Everything
+resolves relative to wherever you cloned the repo.
+
+- `radio` -- entry point; launches sacc pointing at the Bitreich Radio gopher
   page; cleans up mpv on exit.
-- `sacc` — terminal gopher client compiled with `sacc-plumber.sh` as its
+- `sacc` -- terminal gopher client compiled with `sacc-plumber.sh` as its
   plumber (configured at compile-time in `config.h`).
-- `sacc-plumber.sh` — when you select a link in sacc, this script is invoked.
+- `sacc-plumber.sh` -- when you select a link in sacc, this script is invoked.
   Audio files and HTTP(S) URLs are played with mpv. Everything else is opened
   with `xdg-open` (Linux), `open` (macOS), or falls back to printing the URL.
 
@@ -162,7 +168,7 @@ files, etc.). By default, sacc ships with `xdg-open` as its plumber:
 static char *plumber = "xdg-open";
 ```
 
-This is a **compile-time** setting in sacc's `config.h` — it gets baked into
+This is a **compile-time** setting in sacc's `config.h` -- it gets baked into
 the binary. To make radio streams work, we change it to our custom plumber:
 
 ```c
@@ -186,38 +192,36 @@ When you select any non-directory item in sacc, it invokes
    background, and saves the PID for cleanup
 3. If no: opens the URL with the system opener (`xdg-open` / `open`)
 
-sacc follows the suckless philosophy — read the manpage (`man sacc`) after
+sacc follows the suckless philosophy -- read the manpage (`man sacc`) after
 installing to understand all the options, keybindings, and how plumbing works.
 The source is short and readable; `config.h` is where all user customization
 happens.
 
 ## Further reading
 
-After installing, read the sacc manpage:
+Read the sacc manpage:
 
 ```sh
 man sacc
 ```
 
 It covers all keybindings, command-line flags, and how the plumber/yanker
-system works. sacc is a suckless-style program — all configuration lives in
+system works. sacc is a suckless-style program -- all configuration lives in
 `config.h` and requires recompilation. If you want to tweak keybindings,
 change the yanker (clipboard tool), or swap the plumber for something else,
-edit `config.h` and rebuild.
+edit `config.h` and run `./install.sh` again.
 
 ## Uninstall
 
+Just delete the directory:
+
 ```sh
-sudo rm /usr/local/bin/radio /usr/local/bin/sacc /usr/local/bin/sacc-plumber.sh
-sudo rm /usr/local/share/man/man1/sacc.1
+rm -rf bitreich-radio
 ```
 
-Or if you used a custom prefix:
-```sh
-rm ~/.local/bin/radio ~/.local/bin/sacc ~/.local/bin/sacc-plumber.sh
-```
+Nothing was installed anywhere else on your system.
 
 ## License
 
 The `radio` and `sacc-plumber.sh` scripts are public domain.
-sacc is licensed under the ISC license — see the sacc source for details.
+sacc is licensed under the ISC license -- see the sacc source for details.
