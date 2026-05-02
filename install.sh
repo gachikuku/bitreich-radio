@@ -47,7 +47,7 @@ find_libtls() {
     #    the correct libdir and includedir paths for all outputs.
     #    We find the .pc file and parse it directly.
     if [ -d /nix/store ]; then
-        _nix_pc="$(find /nix/store -maxdepth 4 -path "*libressl*-dev/lib/pkgconfig/libtls.pc" 2>/dev/null | sort -V | tail -1)"
+        _nix_pc="$(ls /nix/store/*libressl*-dev/lib/pkgconfig/libtls.pc 2>/dev/null | sort -V | tail -1)"
         if [ -n "$_nix_pc" ]; then
             TLS_INCDIR="$(sed -n 's/^includedir=//p' "$_nix_pc")"
             TLS_LIBDIR="$(sed -n 's/^libdir=//p' "$_nix_pc")"
