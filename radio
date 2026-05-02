@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# bitreich-radio: Listen to Bitreich Radio via the Gopher protocol
+# Requires: sacc (gopher client) + mpv (media player)
+
+pidfile="${XDG_RUNTIME_DIR:-/tmp}/sacc-mpv.pid"
+
+cleanup() {
+    if [ -f "$pidfile" ]; then
+        pid=$(cat "$pidfile" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null
+        fi
+        rm -f "$pidfile"
+    fi
+}
+
+trap cleanup EXIT INT TERM HUP
+sacc "gophers://bitreich.org/1/radio/lawn"
+cleanup
