@@ -176,10 +176,13 @@ echo "==> Patching sacc for bitreich-radio..."
 cp "${SCRIPT_DIR}/config.h" ./config.h
 
 # Patch io_tls.c: use TOFU (Trust On First Use) for gophers://.
-# Change the initial TLS mode from TLS_ON to TLS_PEM so sacc
-# auto-accepts and saves server certs without prompting.
-# On subsequent connections the saved cert is used for verification.
-sed_inplace io_tls.c 's/tls = TLS_ON;/tls = TLS_PEM;/'
+# In parseurl_tls(), change the initial TLS mode from TLS_ON to
+# TLS_PEM so sacc auto-accepts and saves server certs on first
+# connect. Only patch the gophers URL parser (line after the
+# strncmp "gophers" check), not the one in connect_tls() that
+# switches back to TLS_ON after saving the cert.
+_tmp="io_tls.c.patchtmp"
+awk '/strncmp\(url, "gophers"/{f=1} f && /tls = TLS_ON/{sub(/TLS_ON/, "TLS_PEM"); f=0} 1' io_tls.c > "$_tmp" && mv "$_tmp" io_tls.c
 
 # Ensure TLS is enabled in config.mk (IO=tls, -DUSE_TLS, -ltls)
 sed_inplace config.mk 's/^#*IO = .*/IO = tls/'
