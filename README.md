@@ -154,12 +154,28 @@ radio (shell script)
 
 ### The plumbing in detail
 
-sacc's plumber is a **compile-time** setting — it's hardcoded in `config.h`
-and baked into the sacc binary. The bundled `config.h` sets:
+sacc uses a **plumber** to handle non-directory items (audio streams, URLs,
+files, etc.). By default, sacc ships with `xdg-open` as its plumber:
 
 ```c
+/* default plumber */
+static char *plumber = "xdg-open";
+```
+
+This is a **compile-time** setting in sacc's `config.h` — it gets baked into
+the binary. To make radio streams work, we change it to our custom plumber:
+
+```c
+/* default plumber */
 static char *plumber = "sacc-plumber.sh";
 ```
+
+The bundled `config.h` in this repo already has this change applied.
+The installer copies it into sacc's source tree before compiling, so you
+don't have to edit anything manually.
+
+If you're building sacc yourself (without the installer), you need to make
+this change in `config.h` before running `make`.
 
 When you select any non-directory item in sacc, it invokes
 `sacc-plumber.sh <url>`. The plumber script then:
@@ -169,6 +185,25 @@ When you select any non-directory item in sacc, it invokes
 2. If yes: kills any previously playing mpv, launches `mpv --no-video` in the
    background, and saves the PID for cleanup
 3. If no: opens the URL with the system opener (`xdg-open` / `open`)
+
+sacc follows the suckless philosophy — read the manpage (`man sacc`) after
+installing to understand all the options, keybindings, and how plumbing works.
+The source is short and readable; `config.h` is where all user customization
+happens.
+
+## Further reading
+
+After installing, read the sacc manpage:
+
+```sh
+man sacc
+```
+
+It covers all keybindings, command-line flags, and how the plumber/yanker
+system works. sacc is a suckless-style program — all configuration lives in
+`config.h` and requires recompilation. If you want to tweak keybindings,
+change the yanker (clipboard tool), or swap the plumber for something else,
+edit `config.h` and rebuild.
 
 ## Uninstall
 
