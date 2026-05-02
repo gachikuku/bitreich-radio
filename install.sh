@@ -172,8 +172,14 @@ SACC_VERSION="$(git describe --tags 2>/dev/null || git rev-parse --short HEAD)"
 echo "    sacc version: ${SACC_VERSION}"
 
 # --- Patch config ---
-echo "==> Patching config.h with bitreich-radio plumber..."
+echo "==> Patching sacc for bitreich-radio..."
 cp "${SCRIPT_DIR}/config.h" ./config.h
+
+# Patch io_tls.c: use TOFU (Trust On First Use) for gophers://.
+# Change the initial TLS mode from TLS_ON to TLS_PEM so sacc
+# auto-accepts and saves server certs without prompting.
+# On subsequent connections the saved cert is used for verification.
+sed_inplace io_tls.c 's/tls = TLS_ON;/tls = TLS_PEM;/'
 
 # Ensure TLS is enabled in config.mk (IO=tls, -DUSE_TLS, -ltls)
 sed_inplace config.mk 's/^#*IO = .*/IO = tls/'
