@@ -129,6 +129,12 @@ fi
 
 cp sacc "${SCRIPT_DIR}/sacc"
 chmod 755 "${SCRIPT_DIR}/sacc"
+
+# macOS Apple Silicon requires ad-hoc code signing
+if [ "$OS" = "Darwin" ]; then
+    codesign -s - "${SCRIPT_DIR}/sacc" 2>/dev/null
+fi
+
 rm -rf "$BUILD_DIR"
 
 echo ""
