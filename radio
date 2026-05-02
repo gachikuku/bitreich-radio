@@ -1,21 +1,15 @@
 #!/bin/sh
 
-# bitreich-radio: Listen to Bitreich Radio via the Gopher protocol.
-# Requires: sacc (built via ./install.sh) + mpv (media player)
-#
-# POSIX-compliant -- works with sh, dash, bash, zsh, ksh, mksh, etc.
+# bitreich-radio: tune in to Bitreich Radio.
+# POSIX shell. Requires sacc + mpv.
 
-# Resolve our own directory so we find sacc and sacc-plumber.sh next to us
 RADIO_DIR="$(cd "$(dirname "$0")" && pwd)"
+export PATH="${RADIO_DIR}:${PATH}"
 
-# Check sacc binary exists
 if [ ! -x "${RADIO_DIR}/sacc" ]; then
     echo "sacc not found. Run ./install.sh first." >&2
     exit 1
 fi
-
-# Put our directory first in PATH so sacc finds sacc-plumber.sh
-export PATH="${RADIO_DIR}:${PATH}"
 
 pidfile="${XDG_RUNTIME_DIR:-/tmp}/sacc-mpv.pid"
 
