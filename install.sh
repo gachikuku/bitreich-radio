@@ -9,8 +9,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SACC_VERSION="1.07"
-SACC_HTTP_URL="https://codemadness.org/releases/sacc/sacc-${SACC_VERSION}.tar.gz"
+SACC_GIT="git://git.codemadness.org/sacc"
 BUILD_DIR="$(mktemp -d)"
 OS="$(uname -s)"
 
@@ -45,7 +44,7 @@ fi
 
 # --- Check dependencies ---
 missing=""
-for cmd in mpv cc make curl; do
+for cmd in mpv cc make git; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         missing="$missing $cmd"
     fi
@@ -105,12 +104,13 @@ else
     IO_TYPE="tls"
 fi
 
-# --- Download sacc source ---
-echo "==> Downloading sacc ${SACC_VERSION}..."
+# --- Clone latest sacc source ---
+echo "==> Cloning latest sacc from ${SACC_GIT}..."
 cd "$BUILD_DIR"
-curl -fsSL "$SACC_HTTP_URL" -o sacc.tar.gz
-tar xzf sacc.tar.gz
-cd "sacc-${SACC_VERSION}"
+git clone --depth 1 "$SACC_GIT" sacc
+cd sacc
+SACC_VERSION="$(git describe --tags 2>/dev/null || git rev-parse --short HEAD)"
+echo "    sacc version: ${SACC_VERSION}"
 
 # --- Patch config ---
 echo "==> Patching config.h with bitreich-radio plumber..."

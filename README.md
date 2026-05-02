@@ -27,7 +27,7 @@ Works on **macOS**, **Linux**, and **Windows** (via WSL or MSYS2).
 | Dependency | Purpose |
 |---|---|
 | **mpv** | Audio playback |
-| **curl** | Downloading sacc source during install |
+| **git** | Cloning sacc source during install |
 
 ### Installing dependencies by platform
 
@@ -39,27 +39,27 @@ brew install libressl mpv
 
 **Debian / Ubuntu:**
 ```sh
-sudo apt install build-essential libtls-dev libncurses-dev mpv curl
+sudo apt install build-essential libtls-dev libncurses-dev mpv git
 ```
 
 **Fedora:**
 ```sh
-sudo dnf install gcc make libressl-devel ncurses-devel mpv curl
+sudo dnf install gcc make libressl-devel ncurses-devel mpv git
 ```
 
 **Arch Linux:**
 ```sh
-sudo pacman -S base-devel libressl mpv curl
+sudo pacman -S base-devel libressl mpv git
 ```
 
 **Void Linux:**
 ```sh
-sudo xbps-install base-devel libtls-devel ncurses-devel mpv curl
+sudo xbps-install base-devel libtls-devel ncurses-devel mpv git
 ```
 
 **Nix / NixOS:**
 ```sh
-nix-shell -p libressl mpv curl gnumake gcc ncurses
+nix-shell -p libressl mpv git gnumake gcc ncurses
 ```
 
 **Windows (WSL) -- recommended:**
@@ -68,7 +68,7 @@ nix-shell -p libressl mpv curl gnumake gcc ncurses
 wsl --install -d Ubuntu
 
 # 2. Inside WSL, install dependencies
-sudo apt install build-essential libtls-dev libncurses-dev mpv curl
+sudo apt install build-essential libtls-dev libncurses-dev mpv git
 ```
 
 **Windows (MSYS2) -- alternative:**
@@ -88,11 +88,13 @@ cd bitreich-radio
 ```
 
 The installer auto-detects your platform (macOS / Linux / WSL / MSYS2) and will:
-1. Download the sacc 1.07 source to a temp directory
+1. Clone the latest sacc source from `git://git.codemadness.org/sacc`
 2. Patch it with the bundled `config.h` (sets `sacc-plumber.sh` as the plumber)
 3. Compile sacc with TLS support
 4. Copy the `sacc` binary into this directory
 5. Clean up the temp build files
+
+Run `./install.sh` again at any time to rebuild with the latest sacc.
 
 No files are installed outside this directory. No sudo needed.
 
