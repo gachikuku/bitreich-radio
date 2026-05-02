@@ -42,17 +42,18 @@ find_libtls() {
     fi
 
     # 2. Nix store (nix-darwin, NixOS, nix profile)
+    #    Nix splits libressl into multiple outputs (-dev, -bin, lib).
+    #    The -dev output has lib/pkgconfig/libtls.pc which contains
+    #    the correct libdir and includedir paths for all outputs.
+    #    We find the .pc file and parse it directly.
     if [ -d /nix/store ]; then
-        _nix_dev="$(find /nix/store -maxdepth 1 -name "*libressl*-dev" -type d 2>/dev/null | sort -V | tail -1)"
-        _nix_lib="$(find /nix/store -maxdepth 1 -name "*libressl-*" -not -name "*-dev" -not -name "*-man" -not -name "*-doc" -type d 2>/dev/null | sort -V | tail -1)"
-        if [ -n "$_nix_dev" ] && [ -f "${_nix_dev}/include/tls.h" ]; then
-            TLS_INCDIR="${_nix_dev}/include"
-            if [ -n "$_nix_lib" ]; then
-                TLS_LIBDIR="${_nix_lib}/lib"
-            else
-                TLS_LIBDIR="${_nix_dev}/lib"
+        _nix_pc="$(find /nix/store -maxdepth 4 -path "*libressl*-dev/lib/pkgconfig/libtls.pc" 2>/dev/null | sort -V | tail -1)"
+        if [ -n "$_nix_pc" ]; then
+            TLS_INCDIR="$(sed -n 's/^includedir=//p' "$_nix_pc")"
+            TLS_LIBDIR="$(sed -n 's/^libdir=//p' "$_nix_pc")"
+            if [ -n "$TLS_INCDIR" ] && [ -n "$TLS_LIBDIR" ]; then
+                return 0
             fi
-            return 0
         fi
     fi
 
