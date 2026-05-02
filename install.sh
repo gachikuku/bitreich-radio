@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # bitreich-radio installer
-# Downloads sacc source, patches it with our plumber, builds it,
+# Clones latest sacc source, patches it with our plumber, builds it,
 # and places the binary right here in this directory. No sudo needed.
 #
 # POSIX-compliant -- works with sh, dash, bash, zsh, ksh, mksh, etc.
@@ -19,6 +19,64 @@ sed_inplace() {
     shift
     _tmp="${_file}.sedtmp"
     sed "$@" "$_file" > "$_tmp" && mv "$_tmp" "$_file"
+}
+
+# find_libtls: locate libtls include and lib dirs across platforms.
+# Sets TLS_INCDIR and TLS_LIBDIR on success, returns 1 on failure.
+find_libtls() {
+    TLS_INCDIR=""
+    TLS_LIBDIR=""
+
+    # 1. Try pkg-config first (works on most Linux distros and nix)
+    if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists libtls 2>/dev/null; then
+        TLS_INCDIR="$(pkg-config --variable=includedir libtls 2>/dev/null)"
+        TLS_LIBDIR="$(pkg-config --variable=libdir libtls 2>/dev/null)"
+        if [ -n "$TLS_INCDIR" ] && [ -n "$TLS_LIBDIR" ]; then
+            return 0
+        fi
+        # fallback: parse cflags/libs
+        TLS_INCDIR="$(pkg-config --cflags libtls 2>/dev/null | sed -n 's/.*-I\([^ ]*\).*/\1/p')"
+        TLS_LIBDIR="$(pkg-config --libs libtls 2>/dev/null | sed -n 's/.*-L\([^ ]*\).*/\1/p')"
+        # even if dirs are empty, pkg-config found it -- system paths
+        return 0
+    fi
+
+    # 2. Nix store (nix-darwin, NixOS, nix profile)
+    if [ -d /nix/store ]; then
+        _nix_dev="$(find /nix/store -maxdepth 1 -name "*libressl*-dev" -type d 2>/dev/null | sort -V | tail -1)"
+        _nix_lib="$(find /nix/store -maxdepth 1 -name "*libressl-*" -not -name "*-dev" -not -name "*-man" -not -name "*-doc" -type d 2>/dev/null | sort -V | tail -1)"
+        if [ -n "$_nix_dev" ] && [ -f "${_nix_dev}/include/tls.h" ]; then
+            TLS_INCDIR="${_nix_dev}/include"
+            if [ -n "$_nix_lib" ]; then
+                TLS_LIBDIR="${_nix_lib}/lib"
+            else
+                TLS_LIBDIR="${_nix_dev}/lib"
+            fi
+            return 0
+        fi
+    fi
+
+    # 3. Homebrew (macOS)
+    for _prefix in /opt/homebrew/opt/libressl /usr/local/opt/libressl; do
+        if [ -f "${_prefix}/include/tls.h" ]; then
+            TLS_INCDIR="${_prefix}/include"
+            TLS_LIBDIR="${_prefix}/lib"
+            return 0
+        fi
+    done
+
+    # 4. Standard system paths
+    for _inc in /usr/include /usr/local/include; do
+        if [ -f "${_inc}/tls.h" ]; then
+            TLS_INCDIR="$_inc"
+            # lib is usually the sibling
+            _base="$(dirname "$_inc")"
+            TLS_LIBDIR="${_base}/lib"
+            return 0
+        fi
+    done
+
+    return 1
 }
 
 echo "==> bitreich-radio installer"
@@ -71,30 +129,27 @@ if [ -n "$missing" ]; then
     exit 1
 fi
 
-# --- Check for TLS library (required for gophers://) ---
+# --- Find libtls (required for gophers://) ---
 # Bitreich radio uses gophers:// which needs libtls.
 # sacc must be compiled with IO=tls and -DUSE_TLS.
-tls_ok=0
-if pkg-config --exists libtls 2>/dev/null; then
-    tls_ok=1
-elif [ -f /usr/include/tls.h ] || [ -f /usr/local/include/tls.h ] || \
-     [ -f /opt/homebrew/include/tls.h ] || [ -f /usr/include/libressl/tls.h ]; then
-    tls_ok=1
-fi
-
-if [ "$tls_ok" = "0" ]; then
+echo "==> Looking for libtls..."
+if ! find_libtls; then
     echo "ERROR: libtls not found."
     echo ""
     echo "Bitreich radio connects over gophers:// (TLS) so libtls is required."
     echo "Install libressl/libtls for your platform:"
     echo ""
     case "$PLATFORM" in
-        macos)   echo "  brew install libressl" ;;
+        macos)
+            echo "  brew install libressl"
+            echo "  -- or with nix: nix-env -iA nixpkgs.libressl"
+            ;;
         linux|wsl)
             echo "  Debian/Ubuntu: sudo apt install libtls-dev"
             echo "  Fedora:        sudo dnf install libressl-devel"
             echo "  Arch:          sudo pacman -S libressl"
             echo "  Void:          sudo xbps-install libtls-devel"
+            echo "  Nix:           nix-env -iA nixpkgs.libressl"
             ;;
         windows)
             echo "  MSYS2: pacman -S mingw-w64-ucrt-x86_64-libressl"
@@ -104,6 +159,8 @@ if [ "$tls_ok" = "0" ]; then
     echo "Then run ./install.sh again."
     exit 1
 fi
+
+echo "    Found: include=${TLS_INCDIR:-system} lib=${TLS_LIBDIR:-system}"
 
 # --- Clone latest sacc source ---
 echo "==> Cloning latest sacc from ${SACC_GIT}..."
@@ -122,37 +179,20 @@ sed_inplace config.mk 's/^#*IO = .*/IO = tls/'
 sed_inplace config.mk 's/^#*IOLIBS = .*/IOLIBS = -ltls/'
 sed_inplace config.mk 's/^#*IOCFLAGS = .*/IOCFLAGS = -DUSE_TLS/'
 
-# --- Platform-specific build flags ---
-case "$PLATFORM" in
-    macos)
-        # Homebrew libressl paths
-        LIBRESSL=""
-        if [ -d /opt/homebrew/opt/libressl ]; then
-            LIBRESSL="/opt/homebrew/opt/libressl"
-        elif [ -d /usr/local/opt/libressl ]; then
-            LIBRESSL="/usr/local/opt/libressl"
-        fi
-        if [ -n "$LIBRESSL" ]; then
-            sed_inplace config.mk "s|^OSCFLAGS = .*|OSCFLAGS = -I${LIBRESSL}/include|"
-            sed_inplace config.mk "s|^OSLDFLAGS =.*|OSLDFLAGS = -L${LIBRESSL}/lib|"
-        fi
-        ;;
-    linux|wsl)
-        if pkg-config --exists libtls 2>/dev/null; then
-            TLS_CFLAGS="$(pkg-config --cflags libtls)"
-            TLS_LIBS="$(pkg-config --libs libtls)"
-            if [ -n "$TLS_CFLAGS" ]; then
-                sed_inplace config.mk "s|^OSCFLAGS = .*|OSCFLAGS = -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700 -D_BSD_SOURCE -D_GNU_SOURCE ${TLS_CFLAGS}|"
-            fi
-            if [ -n "$TLS_LIBS" ]; then
-                sed_inplace config.mk "s|^IOLIBS = .*|IOLIBS = ${TLS_LIBS}|"
-            fi
-        fi
-        ;;
-    windows)
-        sed_inplace config.mk 's/^OSCFLAGS = .*/OSCFLAGS = -D_DEFAULT_SOURCE -D_GNU_SOURCE/'
-        ;;
-esac
+# --- Set include/lib paths from find_libtls ---
+if [ -n "$TLS_INCDIR" ]; then
+    case "$PLATFORM" in
+        linux|wsl)
+            sed_inplace config.mk "s|^OSCFLAGS = .*|OSCFLAGS = -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700 -D_BSD_SOURCE -D_GNU_SOURCE -I${TLS_INCDIR}|"
+            ;;
+        *)
+            sed_inplace config.mk "s|^OSCFLAGS = .*|OSCFLAGS = -I${TLS_INCDIR}|"
+            ;;
+    esac
+fi
+if [ -n "$TLS_LIBDIR" ]; then
+    sed_inplace config.mk "s|^OSLDFLAGS =.*|OSLDFLAGS = -L${TLS_LIBDIR}|"
+fi
 
 # --- Build ---
 echo "==> Building sacc..."
@@ -170,7 +210,7 @@ rm -rf "$BUILD_DIR"
 
 echo ""
 echo "Done! Run './radio' from this directory to tune in."
-echo "Read the sacc manpage: man sacc (or ./sacc --help)"
+echo "Read the sacc manpage for more: man sacc"
 if [ "$PLATFORM" = "wsl" ]; then
     echo ""
     echo "NOTE (WSL): Make sure mpv and PulseAudio/PipeWire are configured"

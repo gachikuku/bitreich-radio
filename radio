@@ -8,6 +8,12 @@
 # Resolve our own directory so we find sacc and sacc-plumber.sh next to us
 RADIO_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Check sacc binary exists
+if [ ! -x "${RADIO_DIR}/sacc" ]; then
+    echo "sacc not found. Run ./install.sh first." >&2
+    exit 1
+fi
+
 # Put our directory first in PATH so sacc finds sacc-plumber.sh
 export PATH="${RADIO_DIR}:${PATH}"
 
