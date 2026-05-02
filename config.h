@@ -24,14 +24,14 @@
 
 #ifdef NEED_CONF
 
-/* default yanker — pbcopy on macOS, xclip on Linux */
+/* default yanker -- pbcopy on macOS, xclip on Linux */
 #if defined(__APPLE__)
 static char *yanker = "pbcopy";
 #else
 static char *yanker = "xclip";
 #endif
 
-/* default plumber — uses the bundled sacc-plumber.sh */
+/* default plumber -- uses the bundled sacc-plumber.sh */
 static char *plumber = "sacc-plumber.sh";
 
 /* modal plumber will make sacc wait for the plumber to return */

@@ -162,16 +162,20 @@ resolves relative to wherever you cloned the repo.
 
 ### The plumbing in detail
 
-sacc uses a **plumber** to handle non-directory items (audio streams, URLs,
-files, etc.). By default, sacc ships with `xdg-open` as its plumber:
+sacc follows the [suckless](https://suckless.org) philosophy: configuration
+is done by editing C header files and recompiling. There is no runtime config
+file. The relevant file is `config.h`, which sacc's Makefile copies from
+`config.def.h` on first build if it doesn't exist.
+
+By default, sacc ships with `xdg-open` as its plumber (the program invoked
+when you select a non-directory item):
 
 ```c
 /* default plumber */
 static char *plumber = "xdg-open";
 ```
 
-This is a **compile-time** setting in sacc's `config.h` -- it gets baked into
-the binary. To make radio streams work, we change it to our custom plumber:
+We change it to our custom plumber so audio streams are handled by mpv:
 
 ```c
 /* default plumber */
@@ -182,8 +186,9 @@ The bundled `config.h` in this repo already has this change applied.
 The installer copies it into sacc's source tree before compiling, so you
 don't have to edit anything manually.
 
-If you're building sacc yourself (without the installer), you need to make
-this change in `config.h` before running `make`.
+If you're building sacc yourself (without the installer), clone the source
+from `git://git.codemadness.org/sacc`, copy `config.def.h` to `config.h`,
+make the plumber change above, then run `make`.
 
 When you select any non-directory item in sacc, it invokes
 `sacc-plumber.sh <url>`. The plumber script then:
@@ -194,24 +199,43 @@ When you select any non-directory item in sacc, it invokes
    background, and saves the PID for cleanup
 3. If no: opens the URL with the system opener (`xdg-open` / `open`)
 
-sacc follows the suckless philosophy -- read the manpage (`man sacc`) after
-installing to understand all the options, keybindings, and how plumbing works.
-The source is short and readable; `config.h` is where all user customization
-happens.
+### Customizing sacc
+
+sacc is configured entirely through `config.h`. You can change:
+
+- **Plumber** -- the program that handles non-directory items (we set
+  `sacc-plumber.sh`)
+- **Yanker** -- the clipboard program for yanking URIs (`pbcopy` on macOS,
+  `xclip` on Linux)
+- **Keybindings** -- vi-style by default (`h`/`j`/`k`/`l`)
+- **Modal plumber** -- whether sacc waits for the plumber to return (we
+  set this to 0 so audio plays in the background)
+
+Edit `config.h` in this repo, then run `./install.sh` again to rebuild.
+
+sacc also supports multiple UI backends via `config.mk`:
+- `UI=ti` -- default screen-oriented UI (uses curses)
+- `UI=txt` -- plain text UI
+- `UI=rogue` -- roguelike dungeon UI (experimental, see `ui_rogue_readme`
+  in sacc source)
+
+And two IO backends:
+- `IO=tls` -- TLS support via libtls (required for `gophers://`)
+- `IO=clr` -- plain gopher, no TLS
 
 ## Further reading
 
-Read the sacc manpage:
+Read the sacc manpage for full documentation:
 
 ```sh
 man sacc
 ```
 
-It covers all keybindings, command-line flags, and how the plumber/yanker
-system works. sacc is a suckless-style program -- all configuration lives in
-`config.h` and requires recompilation. If you want to tweak keybindings,
-change the yanker (clipboard tool), or swap the plumber for something else,
-edit `config.h` and run `./install.sh` again.
+It covers all keybindings, command-line flags, environment variables
+(`PAGER`, `SACC_CERT_DIR`), and how the plumber/yanker system works.
+
+- sacc source: `git://git.codemadness.org/sacc`
+- sacc web: https://codemadness.org/git/sacc/log.html
 
 ## Uninstall
 
