@@ -79,7 +79,7 @@ pacman -S mingw-w64-ucrt-x86_64-gcc make curl mingw-w64-ucrt-x86_64-mpv \
 ## Install
 
 ```sh
-git clone https://github.com/YOURUSER/bitreich-radio.git
+git clone https://github.com/gachikuku/bitreich-radio.git
 cd bitreich-radio
 ./install.sh
 ```
