@@ -3,6 +3,8 @@
 # bitreich-radio installer
 # Downloads sacc source, patches it with our plumber, builds, and installs.
 # Works on macOS, Linux, and Windows (via WSL/MSYS2).
+#
+# POSIX-compliant -- works with sh, dash, bash, zsh, ksh, mksh, etc.
 
 set -e
 
@@ -12,6 +14,14 @@ SACC_VERSION="1.07"
 SACC_HTTP_URL="https://codemadness.org/releases/sacc/sacc-${SACC_VERSION}.tar.gz"
 BUILD_DIR="$(mktemp -d)"
 OS="$(uname -s)"
+
+# sed_inplace: portable in-place sed (POSIX has no sed -i)
+sed_inplace() {
+    _file="$1"
+    shift
+    _tmp="${_file}.sedtmp"
+    sed "$@" "$_file" > "$_tmp" && mv "$_tmp" "$_file"
+}
 
 echo "==> bitreich-radio installer"
 echo "    Detected OS: ${OS}"
@@ -23,7 +33,7 @@ case "$OS" in
     Linux)   PLATFORM="linux" ;;
     MINGW*|MSYS*|CYGWIN*)  PLATFORM="windows" ;;
     *)
-        echo "WARNING: Unrecognized OS '$OS' — proceeding as Linux-like."
+        echo "WARNING: Unrecognized OS '$OS' -- proceeding as Linux-like."
         PLATFORM="linux"
         ;;
 esac
@@ -109,23 +119,24 @@ cp "${SCRIPT_DIR}/config.h" ./config.h
 
 # Adjust config.mk for IO type
 if [ "$IO_TYPE" = "clr" ]; then
-    sed -i.bak 's/^IO = tls/IO = clr/' config.mk
-    sed -i.bak 's/^IOLIBS = -ltls/IOLIBS =/' config.mk
-    sed -i.bak 's/^IOCFLAGS = -DUSE_TLS/IOCFLAGS =/' config.mk
+    sed_inplace config.mk 's/^IO = tls/IO = clr/'
+    sed_inplace config.mk 's/^IOLIBS = -ltls/IOLIBS =/'
+    sed_inplace config.mk 's/^IOCFLAGS = -DUSE_TLS/IOCFLAGS =/'
 fi
 
 # --- Platform-specific build flags ---
 case "$PLATFORM" in
     macos)
         # Homebrew libressl paths
+        LIBRESSL=""
         if [ -d /opt/homebrew/opt/libressl ]; then
             LIBRESSL="/opt/homebrew/opt/libressl"
         elif [ -d /usr/local/opt/libressl ]; then
             LIBRESSL="/usr/local/opt/libressl"
         fi
         if [ -n "$LIBRESSL" ] && [ "$IO_TYPE" = "tls" ]; then
-            sed -i.bak "s|^OSCFLAGS = .*|OSCFLAGS = -I${LIBRESSL}/include|" config.mk
-            sed -i.bak "s|^OSLDFLAGS =.*|OSLDFLAGS = -L${LIBRESSL}/lib|" config.mk
+            sed_inplace config.mk "s|^OSCFLAGS = .*|OSCFLAGS = -I${LIBRESSL}/include|"
+            sed_inplace config.mk "s|^OSLDFLAGS =.*|OSLDFLAGS = -L${LIBRESSL}/lib|"
         fi
         ;;
     linux|wsl)
@@ -135,16 +146,16 @@ case "$PLATFORM" in
             TLS_CFLAGS="$(pkg-config --cflags libtls)"
             TLS_LIBS="$(pkg-config --libs libtls)"
             if [ -n "$TLS_CFLAGS" ]; then
-                sed -i.bak "s|^OSCFLAGS = .*|OSCFLAGS = -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700 -D_BSD_SOURCE -D_GNU_SOURCE ${TLS_CFLAGS}|" config.mk
+                sed_inplace config.mk "s|^OSCFLAGS = .*|OSCFLAGS = -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700 -D_BSD_SOURCE -D_GNU_SOURCE ${TLS_CFLAGS}|"
             fi
             if [ -n "$TLS_LIBS" ]; then
-                sed -i.bak "s|^IOLIBS = .*|IOLIBS = ${TLS_LIBS}|" config.mk
+                sed_inplace config.mk "s|^IOLIBS = .*|IOLIBS = ${TLS_LIBS}|"
             fi
         fi
         ;;
     windows)
         # MSYS2/MinGW
-        sed -i.bak 's/^OSCFLAGS = .*/OSCFLAGS = -D_DEFAULT_SOURCE -D_GNU_SOURCE/' config.mk
+        sed_inplace config.mk 's/^OSCFLAGS = .*/OSCFLAGS = -D_DEFAULT_SOURCE -D_GNU_SOURCE/'
         ;;
 esac
 
@@ -156,7 +167,7 @@ make
 # --- Install ---
 echo "==> Installing to ${PREFIX}/bin..."
 
-# Use sudo only if we don't own the prefix
+# Use sudo only if we cannot write to the prefix
 if [ -w "${PREFIX}/bin" ] 2>/dev/null; then
     SUDO=""
 else
@@ -173,6 +184,7 @@ rm -rf "$BUILD_DIR"
 
 echo ""
 echo "Done! Run 'radio' to tune in to Bitreich Radio."
+echo "Read the sacc manpage for more: man sacc"
 if [ "$PLATFORM" = "wsl" ]; then
     echo ""
     echo "NOTE (WSL): Make sure mpv and PulseAudio/PipeWire are configured"

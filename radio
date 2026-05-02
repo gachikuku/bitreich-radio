@@ -1,7 +1,9 @@
 #!/bin/sh
 
-# bitreich-radio: Listen to Bitreich Radio via the Gopher protocol
+# bitreich-radio: Listen to Bitreich Radio via the Gopher protocol.
 # Requires: sacc (gopher client) + mpv (media player)
+#
+# POSIX-compliant -- works with sh, dash, bash, zsh, ksh, mksh, etc.
 
 pidfile="${XDG_RUNTIME_DIR:-/tmp}/sacc-mpv.pid"
 

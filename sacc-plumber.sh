@@ -1,7 +1,10 @@
 #!/bin/sh
 
-# Plumber script for sacc — handles media URLs by launching mpv,
-# and falls back to xdg-open/open for everything else.
+# sacc-plumber.sh -- plumber script for sacc.
+# Handles media URLs by launching mpv in the background,
+# falls back to the system opener for everything else.
+#
+# POSIX-compliant -- works with sh, dash, bash, zsh, ksh, mksh, etc.
 
 pidfile="${XDG_RUNTIME_DIR:-/tmp}/sacc-mpv.pid"
 
@@ -15,7 +18,7 @@ kill_prev() {
     fi
 }
 
-# Detect system opener
+# Detect system opener (xdg-open on Linux, open on macOS)
 if command -v xdg-open >/dev/null 2>&1; then
     OPENER="xdg-open"
 elif command -v open >/dev/null 2>&1; then
