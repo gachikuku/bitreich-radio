@@ -19,7 +19,7 @@ Works on **macOS**, **Linux**, and **Windows** (via WSL or MSYS2).
 |---|---|
 | C compiler (cc/gcc/clang) | Build sacc |
 | make | Build system |
-| libtls (LibreSSL) | TLS support for `gophers://` |
+| libtls (libretls or LibreSSL) | TLS support for `gophers://` |
 | ncurses/curses | Terminal UI |
 
 ### Runtime dependencies
